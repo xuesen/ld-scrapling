@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:tjgp.cz.tj.gov.cn)",
+      "Bash(curl -s -L \"http://tjgp.cz.tj.gov.cn/portal/topicView.do\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36\" --max-time 15)",
+      "Bash(curl -s -L \"http://tjgp.cz.tj.gov.cn/portal/topicView.do?searchWord=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36\" --max-time 15)",
+      "Bash(curl -s -L \"http://tjgp.cz.tj.gov.cn/portal/topicView.do?keyword=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36\" --max-time 15)",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do?method=find -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Referer: http://tjgp.cz.tj.gov.cn/portal/topicView.do' --data 'name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6&st=1&view=news&ldateQGE=2026-05-01&ldateQLE=2026-05-26' --max-time 20 -w '\\\\nHTTP Status: %{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Referer: http://tjgp.cz.tj.gov.cn/portal/topicView.do' --data 'method=findAllTitle&name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6' --max-time 20 -w '\\\\nHTTP Status: %{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do?method=find -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36' -H 'Content-Type: application/x-www-form-urlencoded' --data 'name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6&st=1&view=news&page=2' --max-time 20 -w '\\\\nHTTP Status: %{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Referer: http://tjgp.cz.tj.gov.cn/portal/topicView.do' --data 'method=findAllTitle&name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6' --max-time 20)",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do?method=find -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36' -H 'Content-Type: application/x-www-form-urlencoded' --data 'name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6&st=1&view=news&currPage=2' -w '\\\\nHTTP_STATUS:%{http_code}' --max-time 15)",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do?method=find -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36' -H 'Content-Type: application/x-www-form-urlencoded' --data 'name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6&st=1&view=news' --max-time 15)",
+      "Bash(.venv/Scripts/python.exe -c \"from scrapling.fetchers import Fetcher; import inspect; print\\(inspect.signature\\(Fetcher.post\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from scrapling.engines._browsers._types import DataRequestParams; import typing; print\\(typing.get_type_hints\\(DataRequestParams\\)\\)\")",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do?method=find -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Referer: http://tjgp.cz.tj.gov.cn/portal/topicView.do' -H 'Accept: text/html,application/xhtml+xml' --data 'name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6&ldateQGE=2026-05-22&ldateQLE=2026-05-22&st=1' --max-time 15 -w '\\\\nHTTP:%{http_code}')",
+      "Bash(rm -rf \"天津市政府采购信息\")",
+      "PowerShell(Copy-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\config.json\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\ynzy_config.json\")",
+      "Bash(.venv/Scripts/python.exe -c \"import tjgp_scrapling; tjgp_scrapling.check_once\\(\\)\")"
+    ]
+  }
+}
