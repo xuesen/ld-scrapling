@@ -13,7 +13,6 @@
   pip install "scrapling[fetchers]"
 """
 
-import calendar
 import json
 import re
 import time
@@ -33,6 +32,21 @@ BODY_SCANNED_FILE = SAVE_ROOT / "_已扫描正文.txt"
 CONFIG_FILE       = Path("./tjgp_config.json")
 
 WAIT_JSP_SLEEP = 90   # 遇到 wait.jsp 等待秒数
+LOG_DIR        = Path("./log/tjgp")
+
+# 只采集这4个分类：(id, 附加POST参数)
+SCAN_CATEGORIES = [
+    ("1665", {"type": "1"}),  # 采购公告-市级
+    ("1664", {}),              # 采购公告-区级
+    ("2021", {}),              # 采购意向公开-市级
+    ("2022", {}),              # 采购意向公开-区级
+]
+CAT_NAMES = {
+    "1665": "采购公告-市级",
+    "1664": "采购公告-区级",
+    "2021": "采购意向公开-市级",
+    "2022": "采购意向公开-区级",
+}
 
 CONTENT_SELECTORS = [
     "#pageContent",
@@ -44,8 +58,6 @@ CONTENT_SELECTORS = [
 
 # ==================== 默认值 ====================
 DEFAULT_KEYWORDS       = ["天津工业大学", "能源", "供热", "托管", "空气", "运维", "供暖"]
-DEFAULT_TARGET_DATE    = ""
-DEFAULT_TARGET_MONTH   = ""
 DEFAULT_CHECK_INTERVAL = 7200
 # =================================================
 
@@ -57,7 +69,12 @@ _MONTH_MAP = {
 
 
 def log(msg: str):
-    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}", flush=True)
+    line = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
+    print(line, flush=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOG_DIR / f"tjgp_{datetime.now():%Y-%m-%d}.log"
+    with log_file.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 
 def load_config() -> dict:
@@ -82,16 +99,34 @@ def mark_seen(url: str):
         f.write(url + "\n")
 
 
-def load_body_scanned() -> set:
-    if BODY_SCANNED_FILE.exists():
-        return set(BODY_SCANNED_FILE.read_text(encoding="utf-8").splitlines())
-    return set()
+def load_body_scanned(keywords: list) -> set:
+    """返回已用当前全部关键词扫过的 URL 集合。
+    每行格式 url|||kw1,kw2，同一 URL 多行取并集；
+    并集覆盖所有当前关键词才算扫过，否则需重扫。
+    读取后自动压缩：每 URL 只保留一行（合并关键词）。"""
+    if not BODY_SCANNED_FILE.exists():
+        return set()
+    current = set(keywords)
+    url_kws: dict = {}
+    for line in BODY_SCANNED_FILE.read_text(encoding="utf-8").splitlines():
+        if "|||" not in line:
+            continue
+        url, kws_str = line.split("|||", 1)
+        kws = set(kws_str.split(",")) if kws_str else set()
+        url_kws[url] = url_kws.get(url, set()) | kws
+    # 压缩：重写为每 URL 一行（合并后的关键词），消除历史重复行
+    BODY_SCANNED_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with BODY_SCANNED_FILE.open("w", encoding="utf-8") as f:
+        for url, kws in url_kws.items():
+            f.write(f"{url}|||{','.join(sorted(kws))}\n")
+    return {url for url, kws in url_kws.items() if current <= kws}
 
 
-def mark_body_scanned(url: str):
+def mark_body_scanned(url: str, keywords: list):
+    """追加本次扫描所用的关键词集合，与历史记录取并集后覆盖能力只增不减"""
     BODY_SCANNED_FILE.parent.mkdir(parents=True, exist_ok=True)
     with BODY_SCANNED_FILE.open("a", encoding="utf-8") as f:
-        f.write(url + "\n")
+        f.write(f"{url}|||{','.join(sorted(keywords))}\n")
 
 
 def safe_filename(name: str, max_len: int = 80) -> str:
@@ -99,17 +134,6 @@ def safe_filename(name: str, max_len: int = 80) -> str:
     name = name.strip().strip(".")
     return name[:max_len] if len(name) > max_len else name
 
-
-def date_range(date_filter: str):
-    """
-    将 date_filter 转为 (ldateQGE, ldateQLE)。
-    "YYYY-MM-DD" → 同一天；"YYYY-MM" → 该月第一天到最后一天。
-    """
-    if len(date_filter) == 10:  # YYYY-MM-DD
-        return date_filter, date_filter
-    year, month = int(date_filter[:4]), int(date_filter[5:7])
-    last_day = calendar.monthrange(year, month)[1]
-    return f"{date_filter}-01", f"{date_filter}-{last_day:02d}"
 
 
 def parse_pub_date(raw: str) -> str:
@@ -133,8 +157,9 @@ def parse_pub_date(raw: str) -> str:
         return ""
 
 
-def fetch_search(keyword: str, start_date: str, end_date: str, page: int = 1):
-    """POST 搜索并返回 Response 对象"""
+def fetch_search(keyword: str, start_date: str, end_date: str, page: int = 1,
+                 cat_id: str = "", extra_data: dict | None = None):
+    """POST 搜索并返回 Response 对象；cat_id 非空时限定分类"""
     data = {
         "name":      keyword,
         "ldateQGE":  start_date,
@@ -146,6 +171,10 @@ def fetch_search(keyword: str, start_date: str, end_date: str, page: int = 1):
         "st":        "1",
         "pageNum":   str(page),
     }
+    if cat_id:
+        data["id"] = cat_id
+    if extra_data:
+        data.update(extra_data)
     return Fetcher.post(
         f"{SEARCH_URL}?method=find",
         data=data,
@@ -163,8 +192,8 @@ def parse_total_pages(page) -> int:
     return 1
 
 
-def parse_result_items(page, date_filter: str) -> list:
-    """从一页搜索结果中提取符合日期的条目"""
+def parse_result_items(page, start_date: str, end_date: str) -> list:
+    """从一页搜索结果中提取符合日期范围的条目"""
     items = []
     lis = page.css("ul.dataList > li")
     if not lis:
@@ -183,7 +212,7 @@ def parse_result_items(page, date_filter: str) -> list:
         time_nodes = li.css("span.time")
         raw_date   = time_nodes[0].get_all_text().strip() if time_nodes else ""
         pub_date   = parse_pub_date(raw_date)
-        if not pub_date or not pub_date.startswith(date_filter):
+        if not pub_date or not (start_date <= pub_date <= end_date):
             continue
 
         url = urljoin(BASE, href)
@@ -192,69 +221,59 @@ def parse_result_items(page, date_filter: str) -> list:
     return items
 
 
-def search_announcements(keyword: str, date_filter: str) -> list:
-    """
-    POST 搜索，自动翻页，返回符合日期过滤的所有条目。
-    date_filter: "YYYY-MM-DD" 或 "YYYY-MM"
-    """
-    start, end = date_range(date_filter)
-    results    = []
-    total_pages = 1
-
-    for page_num in range(1, 100):
-        try:
-            resp = fetch_search(keyword, start, end, page_num)
-        except Exception as e:
-            log(f"  搜索请求失败 (第{page_num}页): {e}")
-            break
-
-        if hasattr(resp, "status") and resp.status in (301, 302, 303):
-            break
-
-        items = parse_result_items(resp, date_filter)
-        results.extend(items)
-
-        if page_num == 1:
-            total_pages = parse_total_pages(resp)
-            log(f"  共 {total_pages} 页")
-
-        if page_num >= total_pages or not items:
-            break
-
-        time.sleep(1)
-
-    return results
-
-
-def fetch_all_listings(date_filter: str) -> list:
-    """无关键词搜索，获取日期范围内全部公告列表（不进详情页）"""
-    start, end  = date_range(date_filter)
+def _fetch_pages(keyword: str, start_date: str, end_date: str,
+                 cat_id: str, log_prefix: str, extra_data: dict | None = None) -> list:
+    """翻页抓取单个分类的结果"""
     results     = []
     total_pages = 1
-
     for page_num in range(1, 100):
         try:
-            resp = fetch_search("", start, end, page_num)
+            resp = fetch_search(keyword, start_date, end_date, page_num, cat_id=cat_id, extra_data=extra_data)
         except Exception as e:
-            log(f"  全量搜索失败 (第{page_num}页): {e}")
+            log(f"  {log_prefix}请求失败 (第{page_num}页): {e}")
             break
-
         if hasattr(resp, "status") and resp.status in (301, 302, 303):
             break
-
-        items = parse_result_items(resp, date_filter)
+        items = parse_result_items(resp, start_date, end_date)
         results.extend(items)
-
         if page_num == 1:
             total_pages = parse_total_pages(resp)
-            log(f"  全量公告共 {total_pages} 页")
-
         if page_num >= total_pages or not items:
             break
-
         time.sleep(1)
-
     return results
+
+
+def search_announcements(keyword: str, start_date: str, end_date: str) -> list:
+    """POST 搜索，跨 SCAN_CATEGORIES 翻页，返回符合日期范围的所有条目"""
+    seen_urls = set()
+    results   = []
+    for cat_id, extra in SCAN_CATEGORIES:
+        items = _fetch_pages(keyword, start_date, end_date, cat_id,
+                             log_prefix=f"搜索[{cat_id}]", extra_data=extra or None)
+        for it in items:
+            if it["url"] not in seen_urls:
+                seen_urls.add(it["url"])
+                results.append(it)
+    log(f"  共 {len(results)} 条（跨 {len(SCAN_CATEGORIES)} 个分类）")
+    return results
+
+
+def fetch_all_listings(start_date: str, end_date: str) -> tuple[list, dict]:
+    """无关键词，获取 SCAN_CATEGORIES 日期范围内全部公告列表；同时返回各分类条数 dict"""
+    seen_urls = set()
+    results   = []
+    cat_stats: dict = {}
+    for cat_id, extra in SCAN_CATEGORIES:
+        items = _fetch_pages("", start_date, end_date, cat_id,
+                             log_prefix=f"全量[{cat_id}]", extra_data=extra or None)
+        log(f"  分类 {cat_id}: {len(items)} 条")
+        cat_stats[cat_id] = len(items)
+        for it in items:
+            if it["url"] not in seen_urls:
+                seen_urls.add(it["url"])
+                results.append(it)
+    return results, cat_stats
 
 
 def extract_content(page) -> str:
@@ -307,19 +326,18 @@ def save_announcement(item: dict, content: str | None = None):
 
 def check_once():
     """执行一次完整检查"""
-    cfg          = load_config()
-    keywords     = cfg.get("keywords",      DEFAULT_KEYWORDS)
-    target_date  = cfg.get("target_date",   DEFAULT_TARGET_DATE).strip()
-    target_month = cfg.get("target_month",  DEFAULT_TARGET_MONTH).strip()
+    cfg      = load_config()
+    keywords = cfg.get("keywords", DEFAULT_KEYWORDS)
+    use_date = cfg.get("use_date", 0)
+    today    = datetime.now().strftime("%Y-%m-%d")
 
-    if target_date:
-        date_filter = target_date
-    elif target_month:
-        date_filter = target_month
+    if use_date == 1:
+        start_date = cfg.get("target_date_start", "").strip() or today
+        end_date   = cfg.get("target_date_end",   "").strip() or today
     else:
-        date_filter = datetime.now().strftime("%Y-%m-%d")
+        start_date = end_date = today
 
-    log(f"开始检查，过滤条件: {date_filter}，关键词: {keywords}")
+    log(f"开始检查，日期范围: {start_date} ~ {end_date}，关键词: {keywords}")
 
     seen    = load_seen()
     # url -> {"item": dict, "keywords": set, "content": str|None}
@@ -328,7 +346,7 @@ def check_once():
     # 阶段1：标题匹配——收集所有命中，允许同一条目积累多个关键词
     for keyword in keywords:
         log(f"搜索关键词（标题）: 「{keyword}」")
-        items = search_announcements(keyword, date_filter)
+        items = search_announcements(keyword, start_date, end_date)
         log(f"  符合条件的公告: {len(items)} 条")
         for it in items:
             if it["url"] in seen:
@@ -338,7 +356,8 @@ def check_once():
                 pending[url] = {"item": it, "keywords": set(), "content": None}
             pending[url]["keywords"].add(keyword)
 
-    log(f"标题匹配共 {len(pending)} 条（去重后）")
+    title_match_count = len(pending)
+    log(f"标题匹配共 {title_match_count} 条（去重后）")
 
     # 阶段2：优先保存标题命中条目（在大量正文抓取触发限流前完成）
     new_count = 0
@@ -358,12 +377,13 @@ def check_once():
 
     # 阶段3：正文匹配——获取全部公告，逐条检查正文
     log("开始正文关键词检查...")
-    all_items    = fetch_all_listings(date_filter)
-    body_scanned = load_body_scanned()
+    all_items, cat_stats = fetch_all_listings(start_date, end_date)
+    body_scanned = load_body_scanned(keywords)
     remaining    = [it for it in all_items
                     if it["url"] not in seen and it["url"] not in body_scanned]
     log(f"  需检查正文的公告: {len(remaining)} 条（已扫过 {len(body_scanned)} 条）")
 
+    body_checked = 0
     for it in remaining:
         try:
             detail = Fetcher.get(it["url"], stealthy_headers=True, headers={"Referer": SEARCH_URL})
@@ -386,14 +406,29 @@ def check_once():
                     new_count += 1
                 except Exception as e:
                     log(f"  保存出错，跳过: {e}")
-            mark_body_scanned(it["url"])
+            mark_body_scanned(it["url"], keywords)
             body_scanned.add(it["url"])
+            body_checked += 1
             time.sleep(2)
         except Exception as e:
             log(f"  正文检查出错，跳过: {e}")
             traceback.print_exc()
 
-    log(f"本次新增 {new_count} 条" if new_count else "本次没有新公告")
+    cat_line = " | ".join(
+        f"{CAT_NAMES.get(cid, cid)}={cnt}" for cid, cnt in cat_stats.items()
+    )
+    log(
+        f"\n{'=' * 40}\n"
+        f"  本次运行摘要\n"
+        f"  天津市政府采购信息\n"
+        f"  日期范围  : {start_date} ~ {end_date}\n"
+        f"  关键词    : {' '.join(keywords)}\n"
+        f"  标题匹配  : {title_match_count} 条（去重后）\n"
+        f"  全量抓取  : {cat_line} | 共{len(all_items)}条\n"
+        f"  正文扫描  : 本次检查{body_checked}条（已扫{len(body_scanned)}条）\n"
+        f"  新增公告  : {new_count} 条\n"
+        f"{'=' * 40}"
+    )
 
 
 def main():

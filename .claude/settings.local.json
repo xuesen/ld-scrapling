@@ -17,7 +17,18 @@
       "Bash(curl -s -X POST http://tjgp.cz.tj.gov.cn/portal/topicView.do?method=find -H 'User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Referer: http://tjgp.cz.tj.gov.cn/portal/topicView.do' -H 'Accept: text/html,application/xhtml+xml' --data 'name=%E5%A4%A9%E6%B4%A5%E5%B7%A5%E4%B8%9A%E5%A4%A7%E5%AD%A6&ldateQGE=2026-05-22&ldateQLE=2026-05-22&st=1' --max-time 15 -w '\\\\nHTTP:%{http_code}')",
       "Bash(rm -rf \"天津市政府采购信息\")",
       "PowerShell(Copy-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\config.json\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\ynzy_config.json\")",
-      "Bash(.venv/Scripts/python.exe -c \"import tjgp_scrapling; tjgp_scrapling.check_once\\(\\)\")"
+      "Bash(.venv/Scripts/python.exe -c \"import tjgp_scrapling; tjgp_scrapling.check_once\\(\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import tjgp_scrapling; print\\('OK'\\)\")",
+      "Bash(cd /d \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\")",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"import tjgp_scrapling; print\\('OK'\\)\")",
+      "Bash(.venv/Scripts/python.exe -X utf8 -c ' *)",
+      "Bash(iconv -f utf-8 -t utf-8)",
+      "PowerShell(cd \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\"; $env:PYTHONIOENCODING=\"utf-8\"; .venv\\\\Scripts\\\\python.exe -X utf8 -c \"import tjgp_scrapling; tjgp_scrapling.check_once\\(\\)\" 2>&1)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"import tjgp_scrapling; tjgp_scrapling.check_once\\(\\)\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\tjgp\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy\")",
+      "PowerShell(Move-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\tjgp_2026-05-27.log\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\tjgp\\\\\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Move-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy_2026-05-27.log\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy\\\\\" -ErrorAction SilentlyContinue)"
     ]
   }
 }

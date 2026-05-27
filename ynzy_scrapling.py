@@ -34,6 +34,7 @@ GONGGAO_CODE_PREFIX = "001341"
 SAVE_ROOT      = Path("./云南中烟招标公告信息")
 SEEN_FILE      = SAVE_ROOT / "_已抓取.txt"
 CONFIG_FILE    = Path("./ynzy_config.json")
+LOG_DIR        = Path("./log/ynzy")
 
 CONTENT_SELECTORS = [
     ".news_d_text",
@@ -48,15 +49,21 @@ CONTENT_SELECTORS = [
 ]
 
 # ==================== 默认值（config.json 缺字段时使用）====================
-DEFAULT_KEYWORDS      = ["能源", "信息化"]
-DEFAULT_TARGET_DATE   = ""
-DEFAULT_TARGET_MONTH  = ""
+DEFAULT_KEYWORDS       = ["能源", "信息化"]
+DEFAULT_USE_DATE       = 0
+DEFAULT_DATE_START     = ""
+DEFAULT_DATE_END       = ""
 DEFAULT_CHECK_INTERVAL = 7200
 # =========================================================================
 
 
 def log(msg: str):
-    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}", flush=True)
+    line = f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}"
+    print(line, flush=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOG_DIR / f"ynzy_{datetime.now():%Y-%m-%d}.log"
+    with log_file.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
 
 
 def load_config() -> dict:
@@ -105,10 +112,10 @@ def call_search_api(keyword: str, page_index: int) -> dict:
     return json.loads(resp.body.decode("utf-8"))
 
 
-def search_announcements(keyword: str, date_filter: str) -> list:
+def search_announcements(keyword: str, start_date: str, end_date: str) -> list:
     """
-    搜索关键词，翻页取回符合日期过滤的公告信息条目。
-    date_filter 可以是 "YYYY-MM-DD"（精确日期）或 "YYYY-MM"（整月）。
+    搜索关键词，翻页取回 [start_date, end_date] 范围内的公告信息条目。
+    API 按 publishDate 降序返回，遇到早于 start_date 的条目即提前停止翻页。
     每条结构: {"date": "YYYY-MM-DD", "title": "...", "url": "完整链接"}
     """
     results = []
@@ -132,13 +139,17 @@ def search_announcements(keyword: str, date_filter: str) -> list:
         if not items:
             break
 
+        past_range = False
         for item in items:
-            pub_date = str(item.get("publishDate") or "")[:10]   # YYYY-MM-DD
+            pub_date   = str(item.get("publishDate") or "")[:10]   # YYYY-MM-DD
             inner_code = item.get("catalogInnerCode") or ""
-            url   = item.get("url") or ""
-            title = (item.get("title") or "").strip()
+            url        = item.get("url") or ""
+            title      = (item.get("title") or "").strip()
 
-            if not pub_date.startswith(date_filter):
+            if pub_date < start_date:       # 已超出范围，后续只会更早
+                past_range = True
+                break
+            if pub_date > end_date:         # 比截止日期新，跳过
                 continue
             if not inner_code.startswith(GONGGAO_CODE_PREFIX):
                 continue
@@ -150,7 +161,7 @@ def search_announcements(keyword: str, date_filter: str) -> list:
 
             results.append({"date": pub_date, "title": title, "url": url})
 
-        if (page_index + 1) * PAGE_SIZE >= total:
+        if past_range or (page_index + 1) * PAGE_SIZE >= total:
             break
 
         page_index += 1
@@ -205,25 +216,25 @@ def save_announcement(item: dict):
 
 def check_once():
     """执行一次完整检查"""
-    cfg = load_config()
-    keywords     = cfg.get("keywords",      DEFAULT_KEYWORDS)
-    target_date  = cfg.get("target_date",   DEFAULT_TARGET_DATE).strip()
-    target_month = cfg.get("target_month",  DEFAULT_TARGET_MONTH).strip()
+    cfg      = load_config()
+    keywords = cfg.get("keywords", DEFAULT_KEYWORDS)
+    use_date = int(cfg.get("use_date", DEFAULT_USE_DATE))
 
-    if target_date:
-        date_filter = target_date
-    elif target_month:
-        date_filter = target_month
+    today = datetime.now().strftime("%Y-%m-%d")
+    if use_date == 1:
+        start_date = cfg.get("target_date_start", DEFAULT_DATE_START).strip() or today
+        end_date   = cfg.get("target_date_end",   DEFAULT_DATE_END).strip()   or today
     else:
-        date_filter = datetime.now().strftime("%Y-%m-%d")
-    log(f"开始检查，过滤条件: {date_filter}，关键词: {keywords}")
+        start_date = end_date = today
+
+    log(f"开始检查，日期范围: {start_date} ~ {end_date}，关键词: {keywords}")
 
     seen      = load_seen()
     new_count = 0
 
     for keyword in keywords:
         log(f"搜索关键词: 「{keyword}」")
-        items = search_announcements(keyword, date_filter)
+        items = search_announcements(keyword, start_date, end_date)
         log(f"  符合条件的公告信息: {len(items)} 条")
 
         for it in items:
@@ -240,7 +251,15 @@ def check_once():
                 log(f"  抓取出错，跳过: {e}")
                 traceback.print_exc()
 
-    log(f"本次新增 {new_count} 条" if new_count else "本次没有新公告")
+    log(
+        f"\n{'=' * 40}\n"
+        f"  本次运行摘要\n"
+        f"  云南中烟招标公告信息\n"
+        f"  日期范围  : {start_date} ~ {end_date}\n"
+        f"  关键词    : {' '.join(keywords)}\n"
+        f"  新增公告  : {new_count} 条\n"
+        f"{'=' * 40}"
+    )
 
 
 def main():

@@ -1,6 +1,7 @@
 {
-    "keywords": ["赤龙中学", "能源"],
-    "target_date": "",
-    "target_month": "2026-05",
+    "keywords": ["天津工业大学", "能源", "供热", "托管", "空气", "运维", "供暖"],
+    "use_date": 1,
+    "target_date_start": "2026-05-27",
+    "target_date_end": "2026-05-27",
     "check_interval": 7200
 }
