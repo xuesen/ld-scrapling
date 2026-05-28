@@ -1,0 +1,13 @@
+# 敏感配置（含 webhook / secret，不得入库）
+feishu_config.json
+
+# 运行时产出
+log/
+__pycache__/
+*.pyc
+
+# 采集结果
+data/
+
+# 虚拟环境
+.venv/

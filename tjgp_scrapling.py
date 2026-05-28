@@ -23,13 +23,15 @@ from urllib.parse import urljoin
 
 from scrapling.fetchers import Fetcher
 
+from feishu_push import try_push_announcement, try_push_text
+
 # ==================== 固定配置 ====================
 BASE        = "http://tjgp.cz.tj.gov.cn"
 SEARCH_URL  = f"{BASE}/portal/topicView.do"
-SAVE_ROOT   = Path("./天津市政府采购信息")
+SAVE_ROOT   = Path("./data/天津市政府采购信息")
 SEEN_FILE         = SAVE_ROOT / "_已抓取.txt"
 BODY_SCANNED_FILE = SAVE_ROOT / "_已扫描正文.txt"
-CONFIG_FILE       = Path("./tjgp_config.json")
+CONFIG_FILE       = Path("./config.json")
 
 WAIT_JSP_SLEEP = 90   # 遇到 wait.jsp 等待秒数
 LOG_DIR        = Path("./log/tjgp")
@@ -78,10 +80,10 @@ def log(msg: str):
 
 
 def load_config() -> dict:
-    """每次调用时重新读取 tjgp_config.json，进程运行期间修改配置立即生效"""
+    """每次调用时重新读取 config.json，进程运行期间修改配置立即生效"""
     if CONFIG_FILE.exists():
         try:
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("tjgp", {})
         except Exception as e:
             log(f"读取配置文件失败，使用默认值: {e}")
     return {}
@@ -339,7 +341,8 @@ def check_once():
 
     log(f"开始检查，日期范围: {start_date} ~ {end_date}，关键词: {keywords}")
 
-    seen    = load_seen()
+    seen       = load_seen()
+    seen_start = set(seen)   # 本次运行前已采集的快照
     # url -> {"item": dict, "keywords": set, "content": str|None}
     pending: dict = {}
 
@@ -366,10 +369,12 @@ def check_once():
         it["matched_keywords"] = sorted(data["keywords"])
         try:
             save_announcement(it)
-            mark_seen(url)
-            seen.add(url)
-            pending.pop(url)
-            new_count += 1
+            ok = try_push_announcement(it, source="天津市政府采购")
+            if ok:
+                mark_seen(url)
+                seen.add(url)
+                pending.pop(url)
+                new_count += 1
             time.sleep(2)
         except Exception as e:
             log(f"  保存出错，跳过: {e}")
@@ -396,26 +401,42 @@ def check_once():
                     break
             content = extract_content(detail)
             matched = [kw for kw in keywords if kw in content]
+            push_ok = True
             if matched:
                 log(f"  正文命中{matched}: {it['title'][:40]}...")
                 it["matched_keywords"] = sorted(matched)
                 try:
                     save_announcement(it, content=content)
-                    mark_seen(it["url"])
-                    seen.add(it["url"])
-                    new_count += 1
+                    push_ok = try_push_announcement(it, source="天津市政府采购")
+                    if push_ok:
+                        mark_seen(it["url"])
+                        seen.add(it["url"])
+                        new_count += 1
                 except Exception as e:
                     log(f"  保存出错，跳过: {e}")
-            mark_body_scanned(it["url"], keywords)
-            body_scanned.add(it["url"])
+                    push_ok = False
+            if push_ok:
+                mark_body_scanned(it["url"], keywords)
+                body_scanned.add(it["url"])
             body_checked += 1
             time.sleep(2)
         except Exception as e:
             log(f"  正文检查出错，跳过: {e}")
             traceback.print_exc()
 
-    cat_line = " | ".join(
+    cat_line      = " | ".join(
         f"{CAT_NAMES.get(cid, cid)}={cnt}" for cid, cnt in cat_stats.items()
+    )
+    already_count = sum(1 for it in all_items if it["url"] in seen_start)
+    summary = (
+        f"【天津市政府采购】本次运行摘要\n"
+        f"日期范围：{start_date} ~ {end_date}\n"
+        f"关键词：{' '.join(keywords)}\n"
+        f"标题匹配：{title_match_count} 条\n"
+        f"全量抓取：{cat_line} | 共{len(all_items)}条\n"
+        f"正文扫描：本次检查{body_checked}条（已扫{len(body_scanned)}条）\n"
+        f"已采集公告：{already_count} 条\n"
+        f"新增公告：{new_count} 条"
     )
     log(
         f"\n{'=' * 40}\n"
@@ -426,9 +447,12 @@ def check_once():
         f"  标题匹配  : {title_match_count} 条（去重后）\n"
         f"  全量抓取  : {cat_line} | 共{len(all_items)}条\n"
         f"  正文扫描  : 本次检查{body_checked}条（已扫{len(body_scanned)}条）\n"
+        f"  已采集公告: {already_count} 条\n"
         f"  新增公告  : {new_count} 条\n"
         f"{'=' * 40}"
     )
+    time.sleep(1)
+    try_push_text(summary)
 
 
 def main():

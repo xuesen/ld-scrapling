@@ -24,6 +24,8 @@ from urllib.parse import urljoin
 
 from scrapling.fetchers import Fetcher
 
+from feishu_push import try_push_announcement, try_push_text
+
 # ==================== 固定配置（不需要动态调整的参数）====================
 BASE        = "https://www.ynzy-tobacco.com"
 SEARCH_API  = f"{BASE}/zcms/front/search/result"
@@ -31,9 +33,9 @@ SITE_ID     = "128"
 PAGE_SIZE   = 15
 
 GONGGAO_CODE_PREFIX = "001341"
-SAVE_ROOT      = Path("./云南中烟招标公告信息")
+SAVE_ROOT      = Path("./data/云南中烟招标公告信息")
 SEEN_FILE      = SAVE_ROOT / "_已抓取.txt"
-CONFIG_FILE    = Path("./ynzy_config.json")
+CONFIG_FILE    = Path("./config.json")
 LOG_DIR        = Path("./log/ynzy")
 
 CONTENT_SELECTORS = [
@@ -70,7 +72,7 @@ def load_config() -> dict:
     """每次调用时重新读取 config.json，进程运行期间修改配置立即生效"""
     if CONFIG_FILE.exists():
         try:
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8")).get("ynzy", {})
         except Exception as e:
             log(f"读取配置文件失败，使用默认值: {e}")
     return {}
@@ -195,7 +197,7 @@ def save_announcement(item: dict):
     detail  = fetch_page(url)
     content = extract_content(detail)
 
-    folder = SAVE_ROOT / item.get("keyword", "未分类") / item["date"]
+    folder = SAVE_ROOT / item["date"]
     folder.mkdir(parents=True, exist_ok=True)
 
     m       = re.search(r"/(\d+)\.s?html?$", url)
@@ -207,6 +209,7 @@ def save_announcement(item: dict):
         f"日期：{item['date']}\n"
         f"链接：{url}\n"
         f"抓取时间：{datetime.now():%Y-%m-%d %H:%M:%S}\n"
+        f"匹配关键词：{item.get('keyword', '')}\n"
         f"{'=' * 60}\n\n"
         f"{content}\n"
     )
@@ -229,8 +232,9 @@ def check_once():
 
     log(f"开始检查，日期范围: {start_date} ~ {end_date}，关键词: {keywords}")
 
-    seen      = load_seen()
-    new_count = 0
+    seen             = load_seen()
+    new_count        = 0
+    already_seen_urls: set = set()
 
     for keyword in keywords:
         log(f"搜索关键词: 「{keyword}」")
@@ -239,27 +243,41 @@ def check_once():
 
         for it in items:
             if it["url"] in seen:
+                already_seen_urls.add(it["url"])
                 continue
             it["keyword"] = keyword
             try:
                 save_announcement(it)
-                mark_seen(it["url"])
-                seen.add(it["url"])
+                ok = try_push_announcement(it, source="云南中烟")
+                if ok:
+                    mark_seen(it["url"])
+                    seen.add(it["url"])
                 new_count += 1
                 time.sleep(2)
             except Exception as e:
                 log(f"  抓取出错，跳过: {e}")
                 traceback.print_exc()
 
+    already_count = len(already_seen_urls)
+    summary = (
+        f"【云南中烟】本次运行摘要\n"
+        f"日期范围：{start_date} ~ {end_date}\n"
+        f"关键词：{' '.join(keywords)}\n"
+        f"已采集公告：{already_count} 条\n"
+        f"新增公告：{new_count} 条"
+    )
     log(
         f"\n{'=' * 40}\n"
         f"  本次运行摘要\n"
         f"  云南中烟招标公告信息\n"
         f"  日期范围  : {start_date} ~ {end_date}\n"
         f"  关键词    : {' '.join(keywords)}\n"
+        f"  已采集公告: {already_count} 条\n"
         f"  新增公告  : {new_count} 条\n"
         f"{'=' * 40}"
     )
+    time.sleep(1)
+    try_push_text(summary)
 
 
 def main():

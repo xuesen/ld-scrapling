@@ -28,7 +28,11 @@
       "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\tjgp\")",
       "PowerShell(New-Item -ItemType Directory -Force \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy\")",
       "PowerShell(Move-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\tjgp_2026-05-27.log\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\tjgp\\\\\" -ErrorAction SilentlyContinue)",
-      "PowerShell(Move-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy_2026-05-27.log\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy\\\\\" -ErrorAction SilentlyContinue)"
+      "PowerShell(Move-Item \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy_2026-05-27.log\" \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\\\\log\\\\ynzy\\\\\" -ErrorAction SilentlyContinue)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"import ynzy_scrapling; ynzy_scrapling.check_once\\(\\)\")",
+      "Bash(.venvScriptspython.exe -c ' *)",
+      "PowerShell(cd \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\"; $p = Start-Process .venv\\\\Scripts\\\\python.exe -ArgumentList \"main.py\" -PassThru -NoNewWindow -RedirectStandardOutput \".\\\\log\\\\main_test.log\" -RedirectStandardError \".\\\\log\\\\main_test_err.log\"; Start-Sleep 30; $p.Kill\\(\\); Get-Content \".\\\\log\\\\main_test.log\"; if \\(Test-Path \".\\\\log\\\\main_test_err.log\"\\) { $err = Get-Content \".\\\\log\\\\main_test_err.log\"; if \\($err\\) { Write-Output \"--- STDERR ---\"; $err } })",
+      "Bash(.venv/Scripts/pip show *)"
     ]
   }
 }
