@@ -58,7 +58,7 @@ Both scrapers hot-reload their config on every loop iteration — edit `config.j
 
 **Entry point**: `main.py` runs both scrapers concurrently — each `check_once()` runs in a daemon thread with its own sleep/reload cycle. Logs to `log/main/main_YYYY-MM-DD.log`.
 
-**Notifications**: `feishu_push.py` sends new announcements and run summaries to a Feishu group bot. Requires `feishu_config.json` with `webhook` and `secret` fields. Signing is done by `feishu_sign.py` (HMAC-SHA256, base64). Push calls are always wrapped in `try_push_*` functions that silently skip if config is absent.
+**Notifications**: `feishu_push.py` sends new announcements and run summaries to a Feishu group bot. Requires `feishu_config.json` with `webhook` and `secret` fields. HMAC-SHA256 signing is inlined in `feishu_push.py`. Push calls are always wrapped in `try_push_*` functions that silently skip if config is absent.
 
 Two independent single-file scrapers. Each `check_once()` ends by writing a structured run summary to the log.
 
@@ -78,7 +78,7 @@ check_once() → for each keyword:
 - **Channel filter**: `catalogInnerCode` must start with `"001341"` (公告信息). Other prefixes: `001338` = 新闻资讯, `001337` = 关于我们.
 - **Content selector**: `.news_d_text` (primary), falls back to `<p>` concatenation.
 - **Output**: `./data/云南中烟招标公告信息/<YYYY-MM-DD>/<article_id>_<title>.txt` — file header includes matched keyword.
-- **Dedup file**: `./data/云南中烟招标公告信息/_已抓取.txt`
+- **Dedup file**: `./data/云南中烟招标公告信息/_已抓取.txt` — URL written only after Feishu push succeeds; failed pushes are retried next cycle.
 
 ### tjgp_scrapling.py — 天津市政府采购网 (`tjgp.cz.tj.gov.cn`)
 
@@ -105,8 +105,8 @@ Phase 3 — full listing body scan:
 - **Content selector**: `#pageContent` (primary), falls back to `<p>` concatenation.
 - **Output**: `./data/天津市政府采购信息/<YYYY-MM-DD>/<article_id>_<title>.txt` — file header includes matched keywords.
 - **Dedup files**:
-  - `./data/天津市政府采购信息/_已抓取.txt` — saved article URLs
-  - `./data/天津市政府采购信息/_已扫描正文.txt` — body-scanned URLs with format `url|||kw1,kw2,...`; on load, keyword sets are unioned per URL and the file is rewritten (compacted to one line per URL); a URL is skipped only when its union covers all current keywords, allowing re-scan when new keywords are added.
+  - `./data/天津市政府采购信息/_已抓取.txt` — URL written only after Feishu push succeeds; failed pushes are retried next cycle.
+  - `./data/天津市政府采购信息/_已扫描正文.txt` — body-scanned URLs with format `url|||kw1,kw2,...`; on load, keyword sets are unioned per URL and the file is rewritten (compacted to one line per URL); a URL is skipped only when its union covers all current keywords, allowing re-scan when new keywords are added. For matched URLs, this file is also only written after a successful push — so a failed push causes both a re-save and a re-push next cycle.
 
 ## scrapling API notes
 
