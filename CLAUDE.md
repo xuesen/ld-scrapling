@@ -27,6 +27,20 @@ python -c "import ynzy_scrapling; ynzy_scrapling.check_once()"
 python -c "import tjgp_scrapling; tjgp_scrapling.check_once()"
 ```
 
+**Debugging tips:**
+- To test a single keyword in isolation, edit `config.json` to only that keyword and run `check_once()` — config is read fresh on every call.
+- To run locally without sending Feishu messages, rename or delete `feishu_config.json`; both scrapers silently skip push when the config is absent, and dedup files are still written so a later run with push enabled will re-send.
+
+## Data and log paths
+
+```
+data/云南中烟招标公告信息/{YYYY-MM-DD}/   ynzy fetched articles
+data/天津市政府采购信息/{YYYY-MM-DD}/      tjgp fetched articles
+data/<site>/_已抓取.txt                    URL dedup (written only after Feishu push succeeds)
+data/天津市政府采购信息/_已扫描正文.txt    tjgp body-scan dedup with per-URL keyword coverage
+log/{main,ynzy,tjgp}/<name>_YYYY-MM-DD.log daily rotating logs
+```
+
 ## Configuration
 
 Both scrapers hot-reload their config on every loop iteration — edit `config.json` while the process is running and the next cycle picks it up.
@@ -53,6 +67,7 @@ Both scrapers hot-reload their config on every loop iteration — edit `config.j
 
 - `use_date=0`: collect today only; `use_date=1`: use `target_date_start` ~ `target_date_end`
 - `check_interval`: loop sleep in seconds
+- Dates are interpreted in the **process's local timezone**. The Docker image pins `TZ=Asia/Shanghai`; when running outside Docker on a non-CST host, set `TZ` (or `$env:TZ` on Windows) to avoid the "today" window drifting by a day.
 
 ## Architecture
 
@@ -77,8 +92,8 @@ check_once() → for each keyword:
 - **Search**: JSON API at `/zcms/front/search/result`; params `siteID=128`, `query`, `pageIndex` (0-based), `pageSize=15`. Response parsed via `resp.body.decode("utf-8")` (not `.html_content`). Results sorted by `publishDate` descending — stops fetching pages early when `pub_date < start_date`.
 - **Channel filter**: `catalogInnerCode` must start with `"001341"` (公告信息). Other prefixes: `001338` = 新闻资讯, `001337` = 关于我们.
 - **Content selector**: `.news_d_text` (primary), falls back to `<p>` concatenation.
-- **Output**: `./data/云南中烟招标公告信息/<YYYY-MM-DD>/<article_id>_<title>.txt` — file header includes matched keyword.
-- **Dedup file**: `./data/云南中烟招标公告信息/_已抓取.txt` — URL written only after Feishu push succeeds; failed pushes are retried next cycle.
+- **Output**: `./data/云南中烟招标公告信息/<YYYY-MM-DD>/<article_id>_<title>.txt` — file header includes matched keyword. The txt is written unconditionally; only the dedup record depends on push success.
+- **Dedup file**: `./data/云南中烟招标公告信息/_已抓取.txt` — URL written only after Feishu push succeeds; failed pushes are retried next cycle (txt may be overwritten on retry with identical content).
 
 ### tjgp_scrapling.py — 天津市政府采购网 (`tjgp.cz.tj.gov.cn`)
 
@@ -109,6 +124,8 @@ Phase 3 — full listing body scan:
   - `./data/天津市政府采购信息/_已扫描正文.txt` — body-scanned URLs with format `url|||kw1,kw2,...`; on load, keyword sets are unioned per URL and the file is rewritten (compacted to one line per URL); a URL is skipped only when its union covers all current keywords, allowing re-scan when new keywords are added. For matched URLs, this file is also only written after a successful push — so a failed push causes both a re-save and a re-push next cycle.
 
 ## scrapling API notes
+
+Pinned to `scrapling[fetchers]>=0.4.8` (see `requirements.txt`). The API moves fast across minor versions — re-verify the notes below before bumping.
 
 - `page.css(selector)` returns a list; there is **no** `.css_first()` method. Use `nodes[0] if nodes else None`.
 - `resp.html_content` wraps content in `<html><body>` tags — use `resp.body.decode("utf-8")` for JSON APIs.
