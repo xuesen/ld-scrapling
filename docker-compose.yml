@@ -1,7 +1,9 @@
 services:
   scraper:
-    build: .  
+    build: .
     restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
     volumes:
       - ./config.json:/app/config.json
       - ./feishu_config.json:/app/feishu_config.json
