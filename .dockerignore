@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+data/
+log/
+feishu_config.json

@@ -1,0 +1,9 @@
+services:
+  scraper:
+    build: .  
+    restart: unless-stopped
+    volumes:
+      - ./config.json:/app/config.json
+      - ./feishu_config.json:/app/feishu_config.json
+      - ./data:/app/data
+      - ./log:/app/log

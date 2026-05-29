@@ -451,8 +451,9 @@ def check_once():
         f"  新增公告  : {new_count} 条\n"
         f"{'=' * 40}"
     )
-    time.sleep(1)
-    try_push_text(summary)
+    if new_count > 0:
+        time.sleep(1)
+        try_push_text(summary)
 
 
 def main():
