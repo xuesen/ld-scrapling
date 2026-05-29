@@ -234,7 +234,6 @@ def check_once():
 
     seen             = load_seen()
     new_count        = 0
-    already_seen_urls: set = set()
 
     for keyword in keywords:
         log(f"搜索关键词: 「{keyword}」")
@@ -243,7 +242,6 @@ def check_once():
 
         for it in items:
             if it["url"] in seen:
-                already_seen_urls.add(it["url"])
                 continue
             it["keyword"] = keyword
             try:
@@ -258,7 +256,15 @@ def check_once():
                 log(f"  抓取出错，跳过: {e}")
                 traceback.print_exc()
 
-    already_count = len(already_seen_urls)
+    collected_total = (
+        sum(
+            len(list(d.glob("*.txt")))
+            for d in SAVE_ROOT.iterdir()
+            if d.is_dir() and start_date <= d.name <= end_date
+        )
+        if SAVE_ROOT.exists() else 0
+    )
+    already_count = max(0, collected_total - new_count)
     summary = (
         f"【云南中烟】本次运行摘要\n"
         f"日期范围：{start_date} ~ {end_date}\n"

@@ -427,7 +427,15 @@ def check_once():
     cat_line      = " | ".join(
         f"{CAT_NAMES.get(cid, cid)}={cnt}" for cid, cnt in cat_stats.items()
     )
-    already_count = sum(1 for it in all_items if it["url"] in seen_start)
+    collected_total = (
+        sum(
+            len(list(d.glob("*.txt")))
+            for d in SAVE_ROOT.iterdir()
+            if d.is_dir() and start_date <= d.name <= end_date
+        )
+        if SAVE_ROOT.exists() else 0
+    )
+    already_count = max(0, collected_total - new_count)
     summary = (
         f"【天津市政府采购】本次运行摘要\n"
         f"日期范围：{start_date} ~ {end_date}\n"
