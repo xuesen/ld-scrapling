@@ -58,7 +58,7 @@ Both scrapers hot-reload their config on every loop iteration — edit `config.j
 
 **Entry point**: `main.py` runs both scrapers concurrently — each `check_once()` runs in a daemon thread with its own sleep/reload cycle. Logs to `log/main/main_YYYY-MM-DD.log`.
 
-**Notifications**: `feishu_push.py` sends new announcements and run summaries to a Feishu group bot. Requires `feishu_config.json` with `webhook` and `secret` fields. HMAC-SHA256 signing is inlined in `feishu_push.py`. Push calls are always wrapped in `try_push_*` functions that silently skip if config is absent.
+**Notifications**: `feishu_push.py` sends new announcements and run summaries to a Feishu group bot. Requires `feishu_config.json` with `webhook` and `secret` fields. HMAC-SHA256 signing is inlined in `feishu_push.py`. Push calls are always wrapped in `try_push_*` functions that silently skip if config is absent. The run summary is only pushed to Feishu when `new_count > 0` — silent runs produce no Feishu message.
 
 Two independent single-file scrapers. Each `check_once()` ends by writing a structured run summary to the log.
 
@@ -115,3 +115,8 @@ Phase 3 — full listing body scan:
 - `stealthy_headers=True` sets Referer to `https://www.google.com/` by default. Override with `headers={"Referer": ...}` for sites that validate the Referer header.
 - `Fetcher.post(url, data=Dict[str,str], ...)` for form submissions.
 - Check for rate-limit redirects via `getattr(resp, "url", "")` containing `"wait.jsp"` — not via HTTP status, since `follow_redirects=False` means the redirect itself is the response.
+
+## Docker deployment notes
+
+- `docker-compose.yml` mounts `config.json`, `feishu_config.json`, `data/`, `log/` as volumes — rebuilding the image does not affect these.
+- `TZ=Asia/Shanghai` is set in the compose environment to prevent log timestamps from appearing in UTC.
