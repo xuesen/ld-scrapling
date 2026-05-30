@@ -84,6 +84,9 @@ vi config.json
 # 更新代码后重新构建
 docker compose up -d --build
 
+# 重新构建后清理残留的悬空镜像（<none> 标签，安全，不会动到运行中的镜像）
+docker image prune -f
+
 # 停止
 docker compose down
 

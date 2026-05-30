@@ -27,6 +27,8 @@ python -c "import ynzy_scrapling; ynzy_scrapling.check_once()"
 python -c "import tjgp_scrapling; tjgp_scrapling.check_once()"
 ```
 
+**There is no test suite, linter, or build step.** Verification is done by running a single `check_once()` against the live sites and reading the resulting log line / `data` output.
+
 **Debugging tips:**
 - To test a single keyword in isolation, edit `config.json` to only that keyword and run `check_once()` — config is read fresh on every call.
 - To run locally without sending Feishu messages, rename or delete `feishu_config.json`; both scrapers silently skip push when the config is absent, and dedup files are still written so a later run with push enabled will re-send.
@@ -76,6 +78,8 @@ Both scrapers hot-reload their config on every loop iteration — edit `config.j
 **Notifications**: `feishu_push.py` sends new announcements and run summaries to a Feishu group bot. Requires `feishu_config.json` with `webhook` and `secret` fields. HMAC-SHA256 signing is inlined in `feishu_push.py`. Push calls are always wrapped in `try_push_*` functions that silently skip if config is absent. The run summary is only pushed to Feishu when `new_count > 0` — silent runs produce no Feishu message.
 
 Two independent single-file scrapers. Each `check_once()` ends by writing a structured run summary to the log.
+
+**Shared dedup invariant (both scrapers)**: the per-article `.txt` is written *unconditionally*, but a URL is recorded in a dedup file *only after its Feishu push returns success*. This makes the dedup files a record of "successfully notified", not "successfully fetched" — a failed/absent push leaves the URL un-deduped so the next cycle re-saves and re-pushes it (the `.txt` may be overwritten with identical content). When editing save/push logic, preserve this ordering or you will get silent drops or duplicate notifications.
 
 Logs: `log/ynzy/ynzy_YYYY-MM-DD.log` and `log/tjgp/tjgp_YYYY-MM-DD.log` (daily rotating, auto-created).
 
