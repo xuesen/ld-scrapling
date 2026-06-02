@@ -454,7 +454,7 @@ def check_once():
         f"  日期范围  : {start_date} ~ {end_date}\n"
         f"  关键词    : {' '.join(keywords)}\n"
         f"  标题匹配  : {title_match_count} 条（去重后）\n"
-        f"  全量抓取  : {cat_line} | 共{len(all_items)}条\n"
+        f"  全量抓取  : {cat_line} | 共{cat_total}条（去重后{len(all_items)}条）\n"
         f"  正文扫描  : 本次检查{body_checked}条（已扫{len(body_scanned)}条）\n"
         f"  已采集公告: {already_count} 条\n"
         f"  新增公告  : {new_count} 条\n"
