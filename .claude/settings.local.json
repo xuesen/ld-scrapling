@@ -32,7 +32,12 @@
       "Bash(.venv\\\\Scripts\\\\python.exe -c \"import ynzy_scrapling; ynzy_scrapling.check_once\\(\\)\")",
       "Bash(.venvScriptspython.exe -c ' *)",
       "PowerShell(cd \"d:\\\\Project\\\\lingdong\\\\ld-scrapling\"; $p = Start-Process .venv\\\\Scripts\\\\python.exe -ArgumentList \"main.py\" -PassThru -NoNewWindow -RedirectStandardOutput \".\\\\log\\\\main_test.log\" -RedirectStandardError \".\\\\log\\\\main_test_err.log\"; Start-Sleep 30; $p.Kill\\(\\); Get-Content \".\\\\log\\\\main_test.log\"; if \\(Test-Path \".\\\\log\\\\main_test_err.log\"\\) { $err = Get-Content \".\\\\log\\\\main_test_err.log\"; if \\($err\\) { Write-Output \"--- STDERR ---\"; $err } })",
-      "Bash(.venv/Scripts/pip show *)"
+      "Bash(.venv/Scripts/pip show *)",
+      "PowerShell(& \".venv\\\\Scripts\\\\python.exe\" _diag.py)",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; & \".venv\\\\Scripts\\\\python.exe\" _diag.py)",
+      "PowerShell(Remove-Item \"_diag.py\" -Force; if \\(-not \\(Test-Path \"_diag.py\"\\)\\) { Write-Output \"_diag.py 已删除\" })",
+      "PowerShell($env:PYTHONIOENCODING=\"utf-8\"; & \".venv\\\\Scripts\\\\python.exe\" _probe.py)",
+      "PowerShell(Remove-Item \"_probe.py\" -Force -ErrorAction SilentlyContinue; if \\(-not \\(Test-Path \"_probe.py\"\\)\\) { Write-Output \"_probe.py 已删除\" })"
     ]
   }
 }

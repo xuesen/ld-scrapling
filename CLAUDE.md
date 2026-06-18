@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pip install -r requirements.txt
 ```
 
+**Requires Python 3.10+** — the scrapers use `X | None` and `tuple[list, dict]` type hints (PEP 604/585); older interpreters raise `SyntaxError`. The Docker image uses `python:3.12-slim`.
+
 ## Running the scrapers
 
 ```powershell
@@ -81,6 +83,8 @@ Two independent single-file scrapers. Each `check_once()` ends by writing a stru
 
 **Shared dedup invariant (both scrapers)**: the per-article `.txt` is written *unconditionally*, but a URL is recorded in a dedup file *only after its Feishu push returns success*. This makes the dedup files a record of "successfully notified", not "successfully fetched" — a failed/absent push leaves the URL un-deduped so the next cycle re-saves and re-pushes it (the `.txt` may be overwritten with identical content). When editing save/push logic, preserve this ordering or you will get silent drops or duplicate notifications.
 
+**Shared content extraction (both scrapers)**: `extract_content()` walks `CONTENT_SELECTORS` in order and accepts the first selector whose text exceeds **100 chars**; only if none qualify does it concatenate every `<p>` longer than 10 chars. So the "primary" selector named per-scraper below is used only when it yields a substantial block — a short or mis-structured detail page silently falls through to the `<p>` fallback (the usual cause of a saved `.txt` containing nav/footer text or near-empty content).
+
 Logs: `log/ynzy/ynzy_YYYY-MM-DD.log` and `log/tjgp/tjgp_YYYY-MM-DD.log` (daily rotating, auto-created).
 
 ### ynzy_scrapling.py — 云南中烟 (`www.ynzy-tobacco.com`)
@@ -99,7 +103,9 @@ check_once() → for each keyword:
 - **Output**: `./data/云南中烟招标公告信息/<YYYY-MM-DD>/<article_id>_<title>.txt` — file header includes matched keyword. The txt is written unconditionally; only the dedup record depends on push success.
 - **Dedup file**: `./data/云南中烟招标公告信息/_已抓取.txt` — URL written only after Feishu push succeeds; failed pushes are retried next cycle (txt may be overwritten on retry with identical content).
 
-### tjgp_scrapling.py — 天津市政府采购网 (`tjgp.cz.tj.gov.cn`)
+### tjgp_scrapling.py — 天津市政府采购网 (`www.ccgp-tianjin.gov.cn`)
+
+> **站点迁移 (2026-06-13)**：原域名 `http://tjgp.cz.tj.gov.cn` 已被 nginx 301 永久跳转到现域名 `https://www.ccgp-tianjin.gov.cn`（同一套 portal CMS，仅域名 + 协议变化；搜索接口、分类 ID、列表与正文选择器均不变，故修复只改了 `BASE` 一行）。**排查线索**：列表抓取路径遇 3xx 会静默 `break` 返回 0 条——若某天起全分类持续 0 条且无任何报错，优先怀疑站点再次迁移/改域名，而不是关键词或限流问题。
 
 Three-phase within each `check_once()`:
 
@@ -139,5 +145,7 @@ Pinned to `scrapling[fetchers]>=0.4.8` (see `requirements.txt`). The API moves f
 
 ## Docker deployment notes
 
+- The full server runbook (SFTP file list, `docker compose up -d --build`, log watching, `docker image prune -f`) lives in `README.md`.
 - `docker-compose.yml` mounts `config.json`, `feishu_config.json`, `data/`, `log/` as volumes — rebuilding the image does not affect these.
 - `TZ=Asia/Shanghai` is set in the compose environment to prevent log timestamps from appearing in UTC.
+- `Dockerfile` installs dependencies from the Aliyun PyPI mirror (`mirrors.aliyun.com/pypi/simple/`); the default PyPI index times out from the deployment host, so keep the mirror flag when editing it.

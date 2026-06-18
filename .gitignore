@@ -1,5 +1,7 @@
 # 敏感配置（含 webhook / secret，不得入库）
 feishu_config.json
+feishu_config_信息部测试通知.json
+feishu_config_正式群通知.json
 
 # 运行时产出
 log/

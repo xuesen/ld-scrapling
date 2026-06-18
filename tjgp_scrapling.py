@@ -26,7 +26,7 @@ from scrapling.fetchers import Fetcher
 from feishu_push import try_push_announcement, try_push_text
 
 # ==================== 固定配置 ====================
-BASE        = "http://tjgp.cz.tj.gov.cn"
+BASE        = "https://www.ccgp-tianjin.gov.cn"
 SEARCH_URL  = f"{BASE}/portal/topicView.do"
 SAVE_ROOT   = Path("./data/天津市政府采购信息")
 SEEN_FILE         = SAVE_ROOT / "_已抓取.txt"
